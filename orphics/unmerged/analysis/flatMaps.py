@@ -6,11 +6,11 @@ import copy
 from scipy.interpolate import splrep,splev
 from scipy.fftpack import fftshift
 from scipy.interpolate import RectBivariateSpline,interp2d,interp1d
-from orphics.tools.stats import timeit
-import orphics.tools.cmb as cmb
+from orphics.stats import timeit
+import orphics.unmerged.tools.cmb as cmb
 from enlib.fft import fft,ifft
 import itertools
-import orphics.tools.io as io
+import orphics.unmerged.tools.io as io
 
 import orphics.maps as maps
 from enlib import enmap
@@ -151,64 +151,64 @@ class HealpixProjector(object):
     
     def __init__(self,shape,wcs,hp_coords="galactic"):
         """
-	shape -- 2-tuple (Ny,Nx)
-	wcs -- enmap wcs object in equatorial coordinates
-	hp_coords -- "galactic" to perform a coordinate transform, "fk5","j2000" or "equatorial" otherwise
+        shape -- 2-tuple (Ny,Nx)
+        wcs -- enmap wcs object in equatorial coordinates
+        hp_coords -- "galactic" to perform a coordinate transform, "fk5","j2000" or "equatorial" otherwise
         """
-	from astropy.coordinates import SkyCoord
-	import astropy.units as u
+        from astropy.coordinates import SkyCoord
+        import astropy.units as u
         
-	self.wcs = wcs
+        self.wcs = wcs
         self.shape = shape
         Ny,Nx = shape
 
-	inds = np.indices([Nx,Ny])
-	self.x = inds[0].ravel()
-	self.y = inds[1].ravel()
+        inds = np.indices([Nx,Ny])
+        self.x = inds[0].ravel()
+        self.y = inds[1].ravel()
 
-	# Not as slow as you'd expect
-	posmap = enmap.pix2sky(shape,wcs,np.vstack((self.y,self.x)))*180./np.pi
+        # Not as slow as you'd expect
+        posmap = enmap.pix2sky(shape,wcs,np.vstack((self.y,self.x)))*180./np.pi
 
-	ph = posmap[1,:]
-	th = posmap[0,:]
+        ph = posmap[1,:]
+        th = posmap[0,:]
 
         eq_coords = ['fk5','j2000','equatorial']
-	gal_coords = ['galactic']
+        gal_coords = ['galactic']
         if hp_coords.lower() not in eq_coords:
             # This is still the slowest part. If there are faster coord transform libraries, let me know!
-	    assert hp_coords.lower() in gal_coords
-	    gc = SkyCoord(ra=ph*u.degree, dec=th*u.degree, frame='fk5')
-	    gc = gc.transform_to('galactic')
-	    self.phOut = gc.l.deg
-	    self.thOut = gc.b.deg
-	else:
-	    self.thOut = th
-	    self.phOut = ph
+            assert hp_coords.lower() in gal_coords
+            gc = SkyCoord(ra=ph*u.degree, dec=th*u.degree, frame='fk5')
+            gc = gc.transform_to('galactic')
+            self.phOut = gc.l.deg
+            self.thOut = gc.b.deg
+        else:
+            self.thOut = th
+            self.phOut = ph
 
-	self.phOut *= np.pi/180
-	self.thOut = 90. - self.thOut #polar angle is 0 at north pole
-	self.thOut *= np.pi/180
+        self.phOut *= np.pi/180
+        self.thOut = 90. - self.thOut #polar angle is 0 at north pole
+        self.thOut *= np.pi/180
 
 
     def project(self,hp_map,interpolate=True):
         """
-	hp_map -- array-like healpix map
-	interpolate -- boolean
-	"""
-	
-	import healpy as hp
+        hp_map -- array-like healpix map
+        interpolate -- boolean
+        """
+        
+        import healpy as hp
         imap = enmap.zeros(self.shape,self.wcs)
-	
-	# Not as slow as you'd expect
+        
+        # Not as slow as you'd expect
         if interpolate:
             imap[self.y,self.x] = hp.get_interp_val(hp_map, self.thOut, self.phOut)
-	else:
-	    ind = hp.ang2pix( hp.get_nside(hp_map), self.thOut, self.phOut )
-	    imap[:] = 0.
-	    imap[[self.y,self.x]]=hp_map[ind]
-		
-		
-		
+        else:
+            ind = hp.ang2pix( hp.get_nside(hp_map), self.thOut, self.phOut )
+            imap[:] = 0.
+            imap[[self.y,self.x]]=hp_map[ind]
+                
+                
+                
         return enmap.ndmap(imap,self.wcs)
 
     
