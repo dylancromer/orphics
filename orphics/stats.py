@@ -288,8 +288,8 @@ def alpha_from_confidence(c):
     """
     return np.sqrt(2.*np.log((1./(1.-c))))
     
-def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,show_1d=False,
-                latex_dict=None,colors=itertools.repeat(None),lss=itertools.repeat(None),
+def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,show_1d=False, rotate_xlabels=False,
+                latex_dict=None,colors=itertools.repeat(None),lss=itertools.repeat(None),fileformat='png',bbox_anch=(-0.1,-0.1,1,1), xpad=None,
                 thk=2,center_marker=True,save_file=None,loc='upper right',labelsize=14,ticksize=2,lw=3,**kwargs):
     """Make a triangle/corner plot from Fisher matrices.
     Does not support multiple confidence levels. (Redundant under Gaussian approximation of Fisher)
@@ -388,15 +388,20 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
             if (i==0):
                 ax.set_ylabel(paramlabely, fontsize=labelsize,weight='bold')
             if (j == (numpars-1)):
-                ax.set_xlabel(paramlabelx, fontsize=labelsize,weight='bold')
+                ax.set_xlabel(paramlabelx, fontsize=labelsize,weight='bold', labelpad=xpad)
     
     handles, labels = ax.get_legend_handles_labels()
-    legend = fig.legend(handles, labels,prop={'size':labelsize},numpoints=1,frameon = 0,loc=loc, bbox_to_anchor = (-0.1,-0.1,1,1),bbox_transform = plt.gcf().transFigure,**kwargs)
+    legend = fig.legend(handles, labels,prop={'size':labelsize},numpoints=1,frameon = 0,loc=loc, bbox_to_anchor = bbox_anch, bbox_transform = plt.gcf().transFigure,**kwargs)
+
+    if rotate_xlabels:
+        fig.autofmt_xdate()
 
     if save_file is None:
+        fig = plt.gcf()
+        fig.tight_layout()
         plt.show()
     else:
-        plt.savefig(save_file, bbox_inches='tight',format='png')
+        plt.savefig(save_file, bbox_inches='tight',format=fileformat)
         print(io.bcolors.OKGREEN+"Saved plot to", save_file+io.bcolors.ENDC)
         
 

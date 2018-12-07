@@ -490,7 +490,7 @@ class FisherPlots(object):
         print(bcolors.OKGREEN+"Saved plot to", saveFile+bcolors.ENDC)
 
 
-    def plotTri(self,section,paramList,setNames,cols=itertools.repeat(None),lss=itertools.repeat(None),labels=itertools.repeat(None),saveFile="default.png",levels=[2.],xlims=None,ylims=None,loc='upper right',centerMarker=True,TwoSig=False,**kwargs):
+    def plotTri(self,section,paramList,setNames,cols=itertools.repeat(None),lss=itertools.repeat(None),labels=itertools.repeat(None),saveFile="default.png",levels=[2.],xlims=None,ylims=None,loc='upper right',centerMarker=True,TwoSig=False,fmt='png',**kwargs):
 
         circl = self.circl
         numpars = len(paramList)
@@ -557,7 +557,7 @@ class FisherPlots(object):
         handles, labels = ax.get_legend_handles_labels()
         legend = fig.legend(handles, labels,prop={'size':labsize},numpoints=1,frameon = 0,loc=loc, bbox_to_anchor = (-0.1,-0.1,1,1),bbox_transform = plt.gcf().transFigure,**kwargs) #
 
-        plt.savefig(saveFile, bbox_inches='tight',format='png')
+        plt.savefig(saveFile, bbox_inches='tight',format=fmt)
         print(bcolors.OKGREEN+"Saved plot to", saveFile+bcolors.ENDC)
     
 
