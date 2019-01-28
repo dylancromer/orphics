@@ -46,17 +46,21 @@ class Pow2Cat(object):
         
     def get_map(self,seed=None):
         """Get correlated galaxy and kappa map """
-        return curvedsky.rand_map(self.shape, self.wcs, self.ps, lmax=self.lmax, seed=seed, spin=0)
+        alms = curvedsky.rand_alm_healpy(self.ps, lmax=self.lmax, seed=seed)
+        ncomp = 1 if len(self.shape)==2 else self.shape[0]
+        omap   = enmap.empty((ncomp,)+self.shape[-2:], self.wcs, dtype=np.float64)
+        omap = curvedsky.alm2map(alms, omap, spin=0)
+        return alms,omap
 
     def get_cat(self,ngals,seed=None,depth_threshold=0.5,cull_voids=True,add_jitter=True):
         """Get a catalog with total number of galaxies ngals and a kappa map that are correlated."""
-        retmap = self.get_map(seed=seed)
+        alms,retmap = self.get_map(seed=seed)
         if self.ncomp==1:
             gmap = retmap[0]
         else:
             gmap,kmap = retmap
+            kmap -= kmap.mean()
         gmap -= gmap.mean()
-        kmap -= kmap.mean()
         if cull_voids:
             gmap[gmap<-1] = -1
         else:
@@ -65,20 +69,19 @@ class Pow2Cat(object):
         gmodmap = gmap.copy()
         dmap = self.depth_map
         dmap[dmap<depth_threshold] = 0
-        ngalmap = (gmodmap+1.)*dmap
+        pdecs,pras = gmap.posmap()
+        ngalmap = (gmodmap+1.)*dmap*np.cos(pdecs)
         ngalmap *= (ngals/ngalmap.sum())
-        sampled = np.random.poisson(ngalmap)
+        sampled = np.random.poisson(ngalmap).astype(np.float64)
+        sampled = sampled
         Ny,Nx = self.shape[-2:]
         pixmap = (enmap.pixmap(self.shape,self.wcs)).reshape(2,Ny*Nx)
-        nobjs = sampled.reshape(-1)
+        nobjs = sampled.reshape(-1).astype(np.int)
         cat = np.repeat(pixmap,nobjs,-1).astype(np.float64)
         jitter = np.random.uniform(-0.5,0.5,size=cat.shape) if add_jitter else 0.
         cat += jitter
         decs,ras = np.rad2deg(enmap.pix2sky(self.shape,self.wcs,cat))
-        if self.ncomp==1:
-            return ras,decs,gmap
-        else:
-            return ras,decs,gmap,kmap
+        return ras,decs,alms,retmap
 
 def load_fits(fits_file,column_names,hdu_num=1,Nmax=None):
     hdu = fits.open(fits_file)
@@ -161,8 +164,7 @@ class CatMapper(object):
             elif hp_coords in eq_coords:
                 ras_out = ras_deg
                 decs_out = decs_deg
-                lonlat = True
-                self.pixs = hp.ang2pix(nside,ras_out,decs_out,lonlat=lonlat)
+                self.pixs = hp.ang2pix(nside,ras_out,decs_out,lonlat=True)
                 
             else:
                 raise ValueError
@@ -210,6 +212,8 @@ class CatMapper(object):
     def get_delta(self):
         delta = (self.counts/self.nmean-1.)
         if not self.curved:
+            parea = maps.psizemap(delta.shape, self.wcs)*((180.*60./np.pi)**2.)
+            delta = ((delta+1.)*self.nmean/self.ngal_per_arcminsq/parea)-1.
             delta = enmap.enmap(delta,self.wcs)
         return delta
     

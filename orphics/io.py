@@ -12,6 +12,14 @@ try:
 except:
     dout_dir = "./"
 
+class latex:
+    ell = "$\\ell$"
+    L = "$L$"
+    dl = "$D_{\\ell}$"
+    cl = "$C_{\\ell}$"
+    cL = "$C_{L}$"
+    ratcl = "$\Delta C_{\\ell}/C_{\\ell}$"
+
 class DummyFile(object):
     def write(self, x): pass
 
@@ -26,6 +34,19 @@ def nostdout():
 @contextlib.contextmanager
 def no_context():
     yield None
+
+## PARSING
+
+def but_her_emails(string=None,filename=None):
+    """Extract email addresses from a string
+    or file."""
+    import re
+    if string is None:
+        with open("emails.txt",'r') as myfile:
+            string=myfile.read().replace('\n', '')
+    match = re.findall(r'[\w\.-]+@[\w\.-]+', string)
+    return match
+
     
 ## LOGGING
 
@@ -62,6 +83,14 @@ def get_logger(logname)        :
     return logger    
     
 ### FILE I/O
+
+def config_from_yaml(filename):
+    import yaml
+    with open(filename) as f:
+        config = yaml.safe_load(f)
+    return config
+
+
 
 def dict_from_section(config,section_name):
     try:
@@ -138,18 +167,21 @@ def list_strings_from_config(Config,section,name):
 
 ### PLOTTING
 
-def hplot(img,savename=None):
+def hplot(img,savename=None,verbose=True,grid=False,**kwargs):
     from pixell import enplot
-    plots = enplot.get_plots(img)
+    plots = enplot.get_plots(img,grid=grid,**kwargs)
     if savename is None:
         enplot.show(plots)
         return
     enplot.write(savename,plots)
+    if verbose: cprint("Saved plot to "+ savename,color="g")
 
 def blend(fg_file,bg_file,alpha,save_file=None,verbose=True):
     from PIL import Image
-    foreground = Image.open(fg_file)
+    foreground = Image.open(fg_file) #.convert('RGB')
     background = Image.open(bg_file)
+    print(foreground.mode)
+    print(background.mode)
     blended = Image.blend(foreground, background, alpha=alpha)
     if save_file is not None:
         blended.save(save_file)
@@ -168,11 +200,18 @@ def hist(data,bins=10,save_file=None,verbose=True,**kwargs):
     return ret
         
 
-def mollview(hp_map,filename=None,cmin=None,cmax=None,coord='C',verbose=True,return_projected_map=False,**kwargs):
+def mollview(hp_map,filename=None,lim=None,coord='C',verbose=True,return_projected_map=False,**kwargs):
     '''
     mollview plot for healpix wrapper
     '''
     import healpy as hp
+    if lim is None:
+        cmin = cmax = None
+    elif type(lim) is list or type(lim) is tuple:
+        cmin,cmax = lim
+    else:
+        cmin =-lim
+        cmax = lim
     retimg = hp.mollview(hp_map,min=cmin,max=cmax,coord=coord,return_projected_map=return_projected_map,**kwargs)
     if filename is not None:
         plt.savefig(filename)
@@ -221,8 +260,8 @@ class Plotter(object):
     Fast, easy, and pretty publication-quality plots
     '''
 
-    def __init__(self,xlabel=None,ylabel=None,xscale="linear",yscale="linear",ftsize=14,thk=1,labsize=None,major_tick_size=5,minor_tick_size=3,**kwargs):
-
+    def __init__(self,xlabel=None,ylabel=None,xscale="linear",yscale="linear",ftsize=14,thk=1,labsize=None,major_tick_size=5,minor_tick_size=3,scalefn = lambda x: 1,**kwargs):
+        self.scalefn = scalefn
         matplotlib.rc('axes', linewidth=thk)
         matplotlib.rc('axes', labelcolor='k')
         self.thk = thk
@@ -264,9 +303,12 @@ class Plotter(object):
 
         return legend
            
-    def add(self,x,y,label=None,**kwargs):
+    def add(self,x,y,label=None,lw=2,linewidth=None,**kwargs):
+        if linewidth is not(None): lw = linewidth
         if label is not None: self.do_legend = True
-        return self._ax.plot(x,y,label=label,**kwargs)
+        scaler = self.scalefn(x)
+        yc = y*scaler
+        return self._ax.plot(x,yc,label=label,linewidth=lw,**kwargs)
 
 
     def hist(self,data,**kwargs):
@@ -274,11 +316,14 @@ class Plotter(object):
     
         
     def add_err(self,x,y,yerr,ls='none',band=False,alpha=1.,marker="o",elinewidth=2,markersize=4,label=None,**kwargs):
+        scaler = self.scalefn(x)
+        yc = y*scaler
+        yerrc = yerr*scaler
         if band:
-            self._ax.plot(x,y,ls=ls,marker=marker,label=label,**kwargs)
-            self._ax.fill_between(x, y-yerr, y+yerr, alpha=alpha)
+            self._ax.plot(x,yc,ls=ls,marker=marker,label=label,**kwargs)
+            self._ax.fill_between(x, yc-yerrc, y+yerrc, alpha=alpha)
         else:
-            self._ax.errorbar(x,y,yerr=yerr,ls=ls,marker=marker,elinewidth=elinewidth,markersize=markersize,label=label,alpha=alpha,**kwargs)
+            self._ax.errorbar(x,yc,yerr=yerrc,ls=ls,marker=marker,elinewidth=elinewidth,markersize=markersize,label=label,alpha=alpha,**kwargs)
         if label is not None: self.do_legend = True
 
     def plot2d(self,data,lim=None,levels=None,clip=0,clbar=True,cm=None,label=None,labsize=14,extent=None,ticksize=12,**kwargs):
@@ -292,9 +337,9 @@ class Plotter(object):
         Ny=data.shape[1]
         arr=data[clip:Nx-clip,clip:Ny-clip]
 
-        if type(lim) is list:
+        if type(lim) is list or type(lim) is tuple:
             limmin,limmax = lim
-        elif lim==None:
+        elif lim is None:
             limmin=None
             limmax = None
         else:
