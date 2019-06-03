@@ -194,6 +194,11 @@ class FisherMatrix(DataFrame):
 
         check_fisher_sanity(fmat,param_list)
         pd.DataFrame.__init__(self,fmat.copy(),columns=param_list,index=param_list)
+        try:
+            a = self.params
+            raise ValueError # self.params should not already exist
+        except:
+            pass
         self.params = param_list
 
         cols = self.columns.tolist()
@@ -796,7 +801,6 @@ def get_stats(binned_vectors):
     6. corr
     '''
     # untested!
-
     arr = np.asarray(binned_vectors)
     N = arr.shape[0]
     ret = {}
@@ -820,7 +824,6 @@ def get_stats(binned_vectors):
         ret['corr'] = ret['cov'] / stddev[:, None]
         ret['corr'] = ret['cov'] / stddev[None, :]
         np.clip(ret['corr'], -1, 1, out=ret['corr'])
-
     return ret
 
 def timeit(method):

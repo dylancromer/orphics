@@ -116,12 +116,16 @@ def mass_estimate(kappa_recon,kappa_noise_2d,mass_guess,concentration,z):
     mf = maps.MatchedFilter(shape,wcs,template,kappa_noise_2d)
     mf.apply(kappa_recon,kmask=kmask)
 
-def alpha_from_kappa(kappa,posmap=None):
-    phi,_ = kappa_to_phi(kappa,kappa.modlmap(),return_fphi=True)
+def alpha_from_kappa(kappa=None,posmap=None,phi=None):
+    if phi is None:
+        phi,_ = kappa_to_phi(kappa,kappa.modlmap(),return_fphi=True)
+        shape,wcs = phi.shape,phi.wcs
+    else:
+        shape,wcs = phi.shape,phi.wcs
     grad_phi = enmap.grad(phi)
-    if posmap is None: posmap = enmap.posmap(kappa.shape,kappa.wcs)
+    if posmap is None: posmap = enmap.posmap(shape,wcs)
     pos = posmap + grad_phi
-    alpha_pix = enmap.sky2pix(kappa.shape,kappa.wcs,pos, safe=False)
+    alpha_pix = enmap.sky2pix(shape,wcs,pos, safe=False)
     return alpha_pix
     
 
@@ -148,6 +152,7 @@ class FlatLensingSims(object):
             ps_kk = theory.gCl('kk',self.modlmap).reshape((1,1,Ny,Nx))
             self.kgen = maps.MapGen(shape[-2:],wcs,ps_kk)
             self.posmap = enmap.posmap(shape[-2:],wcs)
+            self.ps_kk = ps_kk
         self.kbeam = maps.gauss_beam(self.modlmap,beam_arcmin)
         ncomp = 3 if pol else 1
         ps_noise = np.zeros((ncomp,ncomp,Ny,Nx))
@@ -157,7 +162,6 @@ class FlatLensingSims(object):
             ps_noise[2,2] = (noise_b_uk_arcmin*np.pi/180./60.)**2.
         self.ngen = maps.MapGen(shape,wcs,ps_noise)
         self.ps_noise = ps_noise
-        self.ps_kk = ps_kk
 
     def get_unlensed(self,seed=None):
         return self.mgen.get_map(seed=seed)
@@ -426,7 +430,7 @@ def beam_cov(ucov,kbeam):
     return Scov
 
 
-def qest(shape,wcs,theory,noise2d=None,beam2d=None,kmask=None,noise2d_P=None,kmask_P=None,kmask_K=None,pol=False,grad_cut=None,unlensed_equals_lensed=False,bigell=9000,noise2d_B=None):
+def qest(shape,wcs,theory,noise2d=None,beam2d=None,kmask=None,noise2d_P=None,kmask_P=None,kmask_K=None,pol=False,grad_cut=None,unlensed_equals_lensed=False,bigell=9000,noise2d_B=None,noiseX_is_total=False,noiseY_is_total=False):
     # if beam2d is None, assumes input maps are beam deconvolved and noise2d is beam deconvolved
     # otherwise, it beam deconvolves itself
     if noise2d is None: noise2d = np.zeros(shape[-2:])
@@ -438,8 +442,8 @@ def qest(shape,wcs,theory,noise2d=None,beam2d=None,kmask=None,noise2d_P=None,kma
                      theorySpectraForNorm=theory,
                      noiseX2dTEB=[noise2d,noise2d_P,noise2d_B],
                      noiseY2dTEB=[noise2d,noise2d_P,noise2d_B],
-                     noiseX_is_total = False,
-                     noiseY_is_total = False,
+                     noiseX_is_total = noiseX_is_total,
+                     noiseY_is_total = noiseY_is_total,
                      fmaskX2dTEB=[kmask,kmask_P,kmask_P],
                      fmaskY2dTEB=[kmask,kmask_P,kmask_P],
                      fmaskKappa=kmask_K,
@@ -1309,7 +1313,7 @@ class NlGenerator(object):
         return nTX,nPX,nTY,nPY
 
         
-    def updateNoise(self,beamX,noiseTX,noisePX,tellminX,tellmaxX,pellminX,pellmaxX,beamY=None,noiseTY=None,noisePY=None,tellminY=None,tellmaxY=None,pellminY=None,pellmaxY=None,lkneesX=[0.,0.],alphasX=[1.,1.],lkneesY=[0.,0.],alphasY=[1.,1.],lxcutTX=0,lxcutTY=0,lycutTX=0,lycutTY=0,lxcutPX=0,lxcutPY=0,lycutPX=0,lycutPY=0,fgFuncX=None,beamFileX=None,fgFuncY=None,beamFileY=None,noiseFuncTX=None,noiseFuncTY=None,noiseFuncPX=None,noiseFuncPY=None):
+    def updateNoise(self,beamX,noiseTX,noisePX,tellminX,tellmaxX,pellminX,pellmaxX,beamY=None,noiseTY=None,noisePY=None,tellminY=None,tellmaxY=None,pellminY=None,pellmaxY=None,lkneesX=[0.,0.],alphasX=[1.,1.],lkneesY=[0.,0.],alphasY=[1.,1.],lxcutTX=0,lxcutTY=0,lycutTX=0,lycutTY=0,lxcutPX=0,lxcutPY=0,lycutPX=0,lycutPY=0,fgFuncX=None,beamFileX=None,fgFuncY=None,beamFileY=None,noiseFuncTX=None,noiseFuncTY=None,noiseFuncPX=None,noiseFuncPY=None,bellminY=None,bellmaxY=None):
 
         def setDefault(A,B):
             if A is None:
@@ -1324,6 +1328,9 @@ class NlGenerator(object):
         pellminY = setDefault(pellminY,pellminX)
         tellmaxY = setDefault(tellmaxY,tellmaxX)
         pellmaxY = setDefault(pellmaxY,pellmaxX)
+        bellminY = setDefault(bellminY,pellminY)
+        bellmaxY = setDefault(bellmaxY,pellmaxY)
+        
 
         self.N.lmax_T = self.N.bigell
         self.N.lmax_P = self.N.bigell
@@ -1365,6 +1372,9 @@ class NlGenerator(object):
         fMaskTY = maps.mask_kspace(self.shape,self.wcs,lmin=tellminY,lmax=tellmaxY,lxcut=lxcutTY,lycut=lycutTY)
         fMaskPX = maps.mask_kspace(self.shape,self.wcs,lmin=pellminX,lmax=pellmaxX,lxcut=lxcutPX,lycut=lycutPX)
         fMaskPY = maps.mask_kspace(self.shape,self.wcs,lmin=pellminY,lmax=pellmaxY,lxcut=lxcutPY,lycut=lycutPY)
+        fMaskBX = maps.mask_kspace(self.shape,self.wcs,lmin=pellminX,lmax=pellmaxX,lxcut=lxcutPX,lycut=lycutPX)
+        fMaskBY = maps.mask_kspace(self.shape,self.wcs,lmin=bellminY,lmax=bellmaxY,lxcut=lxcutPY,lycut=lycutPY)
+                
 
         if fgFuncX is not None:
             fg2d = fgFuncX(self.N.modLMap) #/ self.TCMB**2.
@@ -1378,8 +1388,8 @@ class NlGenerator(object):
 
         nListX = [nTX,nPX,nPX]
         nListY = [nTY,nPY,nPY]
-        fListX = [fMaskTX,fMaskPX,fMaskPX]
-        fListY = [fMaskTY,fMaskPY,fMaskPY]
+        fListX = [fMaskTX,fMaskPX,fMaskBX]
+        fListY = [fMaskTY,fMaskPY,fMaskBY]
         for i,noise in enumerate(nList):
             self.N.addNoise2DPowerXX(noise,nListX[i],fListX[i])
             self.N.addNoise2DPowerYY(noise,nListY[i],fListY[i])
@@ -2313,6 +2323,7 @@ class SplitLensing(object):
         kc = k - (1./nsplits**2.)*kiisum
         return (nsplits**4.*self.qpower(kc,kc)-4.*nsplits**2.*psum+4.*psum2)/nsplits/(nsplits-1.)/(nsplits-2.)/(nsplits-3.)
 
+    
 class QE(object):
     def __init__(self,shape,wcs,cmb,xnoise,xbeam,ynoise=None,ybeam=None,ests=None,cmb_response=None):
         modlmap = enmap.modlmap(shape,wcs)
@@ -2729,8 +2740,8 @@ class L1Integral(object):
         ly,lx = enmap.lmap(shape,wcs)
         self.l1x = lx.copy()
         self.l1y = ly.copy()
-        l1y = ly[None,...] # - Ls*0
-        l1x = lx[None,...] # - Ls*0
+        l1y = ly[None,...]
+        l1x = lx[None,...]
         l1 = enmap.modlmap(shape,wcs)[None,...]
         l2y = -l1y
         l2x = Ls - l1x
@@ -2739,6 +2750,8 @@ class L1Integral(object):
         self.Ldl2 = Ls*l2x
         self.l1 = l1
         self.l2 = l2
+
+        print(self.Ldl1.shape,self.Ldl2.shape,self.l1.shape,self.l2.shape,self.l1x.shape,self.l1y.shape)
             
         if pol:
             from orphics import symcoupling as sc
@@ -2750,46 +2763,9 @@ class L1Integral(object):
             self.cost2t12 = cost2t12
             self.sint2t12 = sint2t12
 
-    def _integrate(self,integrand):
-        integral = np.trapz(y=integrand,x=self.l1x,axis=-1)
-        integral = np.trapz(y=integral,x=self.l1y,axis=-1)
+            
+    def integrate(self,integrand):
+        integral = np.trapz(y=integrand,x=self.l1x[0,:],axis=-1)
+        integral = np.trapz(y=integral,x=self.l1y[:,0],axis=-1)
         return integral
-
-        
-
-
-
-# class JointRecon(object):
-
-#     def __init__(self,shape,wcs):
-#         self. = {}
-#         self.estimators = {}
-#         pass
-#     def add_map(self,name,kmask,ptype="T",noise_beam_deconvolved=None,total_noise_beam_deconvolved=None):
-#         pass
-#     def load_map(self,name,imap=None,kmap=None):
-#         pass
-#     def build_estimator(self,tag,xname,yname,cross_noise=None):
-#         pass
-#     def cov(self,tag1,tag2):
-#         pass
-#     def get_cov_matrix(self,tags):
-#         pass
-    
-
-
-# jr = JointRecon(shape,wcs)
-# jr.add_map("Ts",tmask,"T",noise)
-# jr.add_map("Tc",tmask,"T",noise)
-# jr.add_map("Es",tmask,"E",noise)
-# jr.add_map("Bs",tmask,"E",noise)
-# jr.build_estimator("TcTs","Tc","Ts",cross_noise_constrained_standard)
-# jr.build_estimator("TsTc","Ts","Tc",cross_noise_constrained_standard)
-# jr.build_estimator("TsEs","Ts","Es",ClTE)
-# jr.build_estimator("EsTs","Es","Ts",ClTE)
-# jr.build_estimator("EsBs","Es","Bs",0)
-# jr.build_estimator("EsEs","Es","Es",0)
-# jr.build_estimator("TsBs","Ts","Ts",0)
-# ncov = jr.get_cov_matrix(["TpTa","TaTp"])
-
 

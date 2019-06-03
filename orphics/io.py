@@ -1,11 +1,15 @@
 from __future__ import print_function
 import matplotlib
+import matplotlib as mpl
+from cycler import cycler
+mpl.rcParams['axes.prop_cycle'] = cycler(color=['#2424f0','#df6f0e','#3cc03c','#d62728','#b467bd','#ac866b','#e397d9','#9f9f9f','#ecdd72','#77becf'])
 import matplotlib.pyplot as plt
 import numpy as np
 import os,sys,logging,time
 import contextlib
 import itertools
 import traceback
+from pixell import enmap
 
 try:
     dout_dir = os.environ['WWW']+"plots/"
@@ -167,6 +171,12 @@ def list_strings_from_config(Config,section,name):
 
 ### PLOTTING
 
+def fplot(img,savename=None,verbose=True,**kwargs):
+    hplot(enmap.samewcs(np.fft.fftshift(np.log10(img)),img),savename=savename,verbose=verbose,**kwargs)
+
+def mplot(img,savename=None,verbose=True,**kwargs):
+    plot_img(enmap.samewcs(np.fft.fftshift(np.log10(img)),img),filename=savename,verbose=verbose,**kwargs)
+    
 def hplot(img,savename=None,verbose=True,grid=False,**kwargs):
     from pixell import enplot
     plots = enplot.get_plots(img,grid=grid,**kwargs)
@@ -218,15 +228,16 @@ def mollview(hp_map,filename=None,lim=None,coord='C',verbose=True,return_project
         if verbose: cprint("Saved healpix plot to "+ filename,color="g")
     if return_projected_map: return retimg
 
-def plot_img(array,filename=None,verbose=True,ftsize=14,high_res=False,flip=True,down=None,crange=None,cmap="planck",arc_width=None,xlabel="",ylabel="",**kwargs):
+def plot_img(array,filename=None,verbose=True,ftsize=14,high_res=False,flip=True,down=None,crange=None,cmap=None,arc_width=None,xlabel="",ylabel="",**kwargs):
     if array.ndim>2: array = array.reshape(-1,*array.shape[-2:])[0] # Only plot the first component
     if flip: array = np.flipud(array)
     if high_res:
+        if cmap is None: cmap = "planck"
         high_res_plot_img(array,filename,verbose=verbose,down=down,crange=crange,cmap=cmap,**kwargs)
     else:
         extent = None if arc_width is None else [-arc_width/2.,arc_width/2.,-arc_width/2.,arc_width/2.]
         pl = Plotter(ftsize=ftsize,xlabel=xlabel,ylabel=ylabel)
-        pl.plot2d(array,extent=extent,**kwargs)
+        pl.plot2d(array,extent=extent,cm=cmap,**kwargs)
         pl.done(filename,verbose=verbose)
 
 
@@ -260,8 +271,12 @@ class Plotter(object):
     Fast, easy, and pretty publication-quality plots
     '''
 
-    def __init__(self,xlabel=None,ylabel=None,xscale="linear",yscale="linear",ftsize=14,thk=1,labsize=None,major_tick_size=5,minor_tick_size=3,scalefn = lambda x: 1,**kwargs):
+    def __init__(self,xlabel=None,ylabel=None,xyscale=None,xscale="linear",yscale="linear",ftsize=14,thk=1,labsize=None,major_tick_size=5,minor_tick_size=3,scalefn = lambda x: 1,**kwargs):
         self.scalefn = scalefn
+        if xyscale is not None:
+            scalemap = {'log':'log','lin':'linear'}
+            xscale = scalemap[xyscale[:3]]
+            yscale = scalemap[xyscale[3:]]
         matplotlib.rc('axes', linewidth=thk)
         matplotlib.rc('axes', labelcolor='k')
         self.thk = thk
@@ -315,15 +330,15 @@ class Plotter(object):
         return self._ax.hist(data,**kwargs)
     
         
-    def add_err(self,x,y,yerr,ls='none',band=False,alpha=1.,marker="o",elinewidth=2,markersize=4,label=None,**kwargs):
+    def add_err(self,x,y,yerr,ls='none',band=False,alpha=1.,marker="o",elinewidth=2,markersize=4,label=None,mulx=1.,addx=0.,**kwargs):
         scaler = self.scalefn(x)
         yc = y*scaler
         yerrc = yerr*scaler
         if band:
-            self._ax.plot(x,yc,ls=ls,marker=marker,label=label,**kwargs)
-            self._ax.fill_between(x, yc-yerrc, y+yerrc, alpha=alpha)
+            self._ax.plot(x*mulx+addx,yc,ls=ls,marker=marker,label=label,**kwargs)
+            self._ax.fill_between(x*mulx+addx, yc-yerrc, y+yerrc, alpha=alpha)
         else:
-            self._ax.errorbar(x,yc,yerr=yerrc,ls=ls,marker=marker,elinewidth=elinewidth,markersize=markersize,label=label,alpha=alpha,**kwargs)
+            self._ax.errorbar(x*mulx+addx,yc,yerr=yerrc,ls=ls,marker=marker,elinewidth=elinewidth,markersize=markersize,label=label,alpha=alpha,**kwargs)
         if label is not None: self.do_legend = True
 
     def plot2d(self,data,lim=None,levels=None,clip=0,clbar=True,cm=None,label=None,labsize=14,extent=None,ticksize=12,**kwargs):
@@ -373,12 +388,12 @@ class Plotter(object):
         if self.do_legend: self.legend()
 
         if filename is not None:
-            plt.savefig(filename,bbox_inches='tight',**kwargs)
+            self._fig.savefig(filename,bbox_inches='tight',**kwargs)
             if verbose: cprint("Saved plot to "+ filename,"g")
         else:
             plt.show()
 
-        plt.close()
+        plt.close(self._fig)
     
 
 
