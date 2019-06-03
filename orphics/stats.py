@@ -26,9 +26,6 @@ def eig_analyze(cmb2d,start=0,eigfunc=np.linalg.eigh,plot_file=None):
         pl.add(numw,np.sort(np.imag(es[...,ind].ravel())),ls="--")
     pl.done(plot_file)
 
-
-
-    
 def fit_linear_model(x,y,ycov,funcs,dofs=None,deproject=True):
     """
     Given measurements with known uncertainties, this function fits those to a linear model:
@@ -37,7 +34,7 @@ def fit_linear_model(x,y,ycov,funcs,dofs=None,deproject=True):
     """
     s = solve if deproject else np.linalg.solve
     C = ycov
-    y = y[:,None] 
+    y = y[:,None]
     A = np.zeros((y.size,len(funcs)))
     for i,func in enumerate(funcs):
         A[:,i] = func(x)
@@ -47,9 +44,9 @@ def fit_linear_model(x,y,ycov,funcs,dofs=None,deproject=True):
     YAX = y - np.dot(A,X)
     chisquare = np.dot(YAX.T,solve(C,YAX))
     dofs = len(x)-len(funcs)-1 if dofs is None else dofs
-    pte = 1 - chi2.cdf(chisquare, dofs)    
+    pte = 1 - chi2.cdf(chisquare, dofs)
     return X,cov,chisquare/dofs,pte
-    
+
 def fit_gauss(x,y,mu_guess=None,sigma_guess=None):
     ynorm = np.trapz(y,x)
     ynormalized = y/ynorm
@@ -59,7 +56,6 @@ def fit_gauss(x,y,mu_guess=None,sigma_guess=None):
     fit_sigma = popt[1]
     return fit_mean,np.abs(fit_sigma),ynorm,ynormalized
 
-    
 class Solver(object):
     """
     Calculate Cinv . x
@@ -78,7 +74,7 @@ class Solver(object):
         Cinvx = np.linalg.solve(self.C,x)
         correction = np.dot(self.precalc,Cinvx)
         return Cinvx - correction
-    
+
 def solve(C,x,u=None):
     """
     Typically, you do not want to invert your covariance matrix C, but really just want
@@ -91,7 +87,6 @@ def solve(C,x,u=None):
     s = Solver(C,u=u)
     return s.solve(x)
 
-    
 def check_fisher_sanity(fmat,param_list):
     Ny,Nx = fmat.shape
     assert Ny==Nx
@@ -100,7 +95,6 @@ def check_fisher_sanity(fmat,param_list):
 
 def write_fisher(filename,fmat,delim=','):
     np.savetxt(filename,fmat,header=(delim).join(fmat.params),delimiter=delim)
-
 
 def read_fisher_dataframe(csv_file):
     df = pd.read_csv(csv_file,index_col=0)
@@ -129,7 +123,7 @@ def rename_fisher(fmat,pmapping):
         i = old_params.index(key)
         new_params[i] = pmapping[key]
     return FisherMatrix(fmat=fmat.values,param_list=new_params)#,skip_inv=True)
-    
+
 class FisherMatrix(DataFrame):
     """
     A Fisher Matrix object that subclasses pandas.DataFrame.
@@ -139,18 +133,18 @@ class FisherMatrix(DataFrame):
     You can initialize an empty one like:
     >> params = ['H0','om','sigma8']
     >> F = FisherMatrix(np.zeros((len(params),len(params))),params)
-    
+
     where params is a list of parameter names. If you already have a
     Fisher matrix 'Fmatrix' whose diagonal parameter order is specified by
     the list 'params', then you can initialize this object as:
-    
+
     >> F = FisherMatrix(Fmatrix,params)
-    
+
     This makes the code 'aware' of the parameter order in a way that makes
     handling combinations of Fishers a lot easier.
-    
+
     You can set individual elements like:
-    
+
     >> F['s8']['H0'] = 1.
 
     Once you've populated the entries, you can do things like:
@@ -183,7 +177,7 @@ class FisherMatrix(DataFrame):
 
     """
 
-    
+
     def __init__(self,fmat,param_list,delete_params=None,prior_dict=None):#,skip_inv=False):
         """
         fmat            -- (n,n) shape numpy array containing initial Fisher matrix for n parameters
@@ -197,12 +191,11 @@ class FisherMatrix(DataFrame):
         skip_inv        -- If true, this skips calculation of the inverse of the Fisher matrix
                         when the object is initialized.
 	"""
-	
-	
+
         check_fisher_sanity(fmat,param_list)
         pd.DataFrame.__init__(self,fmat.copy(),columns=param_list,index=param_list)
         self.params = param_list
-            
+
         cols = self.columns.tolist()
         ind = self.index.tolist()
         assert set(self.params)==set(cols)
@@ -214,7 +207,6 @@ class FisherMatrix(DataFrame):
             for prior in prior_dict.keys():
                 self.add_prior(prior,prior_dict[prior])
 
-            
     def copy(self, order='K'):
         """
         >> Fnew = F.copy()
@@ -242,16 +234,16 @@ class FisherMatrix(DataFrame):
         Adds 1-sigma value 'prior' to the parameter name specified by 'param'
         """
         self[param][param] += 1./prior**2.
-        
+
     def sigmas(self):
         """
         Returns marginalized 1-sigma uncertainties on each parameter in the Fisher matrix.
         """
         # self._update()
         finv = np.linalg.inv(self.values)
-        errs = np.diagonal(finv)**(0.5)
+        errs = np.sqrt(np.diagonal(finv))
         return dict(zip(self.params,errs))
-    
+
     def delete(self,params):
         """
         Given a list of parameter names 'params', deletes these from the Fisher matrix.
@@ -277,9 +269,8 @@ class FisherMatrix(DataFrame):
         chi211 = finv[i,i]
         chi222 = finv[j,j]
         chi212 = finv[i,j]
-        
-        return np.array([[chi211,chi212],[chi212,chi222]])
 
+        return np.array([[chi211,chi212],[chi212,chi222]])
 
 def alpha_from_confidence(c):
     """Returns the number of sigmas that corresponds to enclosure of c % of the
@@ -288,7 +279,7 @@ def alpha_from_confidence(c):
     e.g. alpha_from_confidence(0.683) = 1.52
     """
     return np.sqrt(2.*np.log((1./(1.-c))))
-    
+
 def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,show_1d=False, rotate_xlabels=False,
                 latex_dict=None,colors=itertools.repeat(None),lss=itertools.repeat(None),fileformat='png',bbox_anch=(-0.1,-0.1,1,1), xpad=None,
                 thk=2,center_marker=True,save_file=None,loc='upper right',labelsize=14,ticksize=2,lw=3,**kwargs):
@@ -317,7 +308,7 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
     alpha = alpha_from_confidence(confidence_level)
     xx = np.array(np.arange(360) / 180. * np.pi)
     circl = np.array([np.cos(xx),np.sin(xx)])
-    
+
     fig=plt.figure(figsize=(2*(numpars+1),2*(numpars+1)),**kwargs) if show_1d else plt.figure(figsize=(2*numpars,2*numpars),**kwargs)
     startp = 0 if show_1d else 1
 
@@ -327,8 +318,7 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
             sigmas.append(fish.sigmas())
     else:
         sigmas = itertools.repeat(None)
-        
-    
+
     for i in range(0,numpars):
         for j in range(i+startp,numpars):
             count = 1+(j)*(numpars) + (i+1) -1 if show_1d else 1+(j-1)*(numpars-1) + i
@@ -340,7 +330,7 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
                 ax.yaxis.set_visible(False)
             if j!=(numpars-1):
                 ax.xaxis.set_visible(False)
-            
+
             try:
                 xval = fid_dict[paramX]
             except:
@@ -376,8 +366,7 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
                     g = norm.pdf(xs,loc=xval,scale=s)
                     ax.plot(xs,g/g.max())
                     continue
-                
-                
+
                 try:
                     chisq = fish.marge_var_2param(paramX,paramY)
                 except:
@@ -390,7 +379,7 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
                 ax.set_ylabel(paramlabely, fontsize=labelsize,weight='bold')
             if (j == (numpars-1)):
                 ax.set_xlabel(paramlabelx, fontsize=labelsize,weight='bold', labelpad=xpad)
-    
+
     handles, labels = ax.get_legend_handles_labels()
     legend = fig.legend(handles, labels,prop={'size':labelsize},numpoints=1,frameon = 0,loc=loc, bbox_to_anchor = bbox_anch, bbox_transform = plt.gcf().transFigure,**kwargs)
 
@@ -404,12 +393,12 @@ def corner_plot(fishers,labels,fid_dict=None,params=None,confidence_level=0.683,
     else:
         plt.savefig(save_file, bbox_inches='tight',format=fileformat)
         print(io.bcolors.OKGREEN+"Saved plot to", save_file+io.bcolors.ENDC)
-        
+
 
 class OQE(object):
     """Optimal Quadratic Estimator for likelihoods that
     are Gaussian in the model parameters.
-    
+
     WARNING: This class has not been tested thoroughly.
 
     Given a fiducial covariance matrix for the data and derivatives
@@ -418,7 +407,7 @@ class OQE(object):
     initialized.
 
     Subsequently, given a data vector, it returns the OQEstimate
-    as a dictionary in the parameters. 
+    as a dictionary in the parameters.
     """
     def __init__(self,fid_cov,dcov_dict,fid_params_dict,invert=False,deproject=True,templates=None):
 
@@ -428,7 +417,6 @@ class OQE(object):
         self.invert = invert
         if invert:
             self.Cinv = self._inv(fid_cov)
-            
 
         if templates is not None: assert deproject
         self.biases = {}
@@ -480,13 +468,10 @@ class OQE(object):
             res[param] = self.fids[param] + ans[param]
         return res
 
-        
     def _inv(self,cov):
         # return np.linalg.pinv(cov)
         return np.linalg.inv(cov)
         # return scipy.linalg.pinv2(cov)
-
-
 
 class OQESlim(object):
     def __init__(self,fid_cov,dcov_dict,fid_params_dict,templates=None):
@@ -534,7 +519,6 @@ class OQESlim(object):
             res[param] = self.fids[param] + ans[param]
         return res
 
-        
 class CinvUpdater(object):
 
     def __init__(self,cinvs,logdets,profile):
@@ -551,12 +535,10 @@ class CinvUpdater(object):
             self.det_unnormalized.append( np.dot(vT, np.dot(Ainv, u)) )
 
     def get_cinv(self,index,amplitude):
-        
+
         det_update = 1.+(amplitude**2.)*self.det_unnormalized[index]
         cinv_updated = self.cinvs[index] - (amplitude**2.)*( self.update_unnormalized[index]/ det_update)
         return  cinv_updated , np.log(det_update)+self.logdets[index]
-
-        
 
 def eig_pow(C,exponent=-1,lim=1.e-8):
     e,v = np.linalg.eigh(C)
@@ -574,7 +556,7 @@ def sm_update(Ainv, u, v=None):
     u = u.reshape((len(u),1))
     v = v.reshape((len(v),1))
     vT = v.T
-    
+
     ldot = np.dot(vT, np.dot(Ainv, u))
     assert ldot.size==1
     det_update = 1.+ldot.ravel()[0]
@@ -584,7 +566,7 @@ def sm_update(Ainv, u, v=None):
 
 def cov2corr(cov):
     # slow and stupid!
-    
+
     d = np.diag(cov)
     stddev = np.sqrt(d)
     corr = cov.copy()*0.
@@ -603,7 +585,7 @@ class Stats(object):
     where different MPI cores may be calculating different number
     of 1d measurements or 2d stacks.
     """
-    
+
     def __init__(self,comm=None,root=0,loopover=None,tag_start=333):
         """
         comm - MPI.COMM_WORLD object
@@ -616,11 +598,10 @@ class Stats(object):
             from orphics.mpi import fakeMpiComm
             self.comm = fakeMpiComm()
 
-            
         self.rank = self.comm.Get_rank()
         self.numcores = self.comm.Get_size()
         self.columns = {}
-            
+
         self.vectors = {}
         self.little_stack = {}
         self.little_stack_count = {}
@@ -638,13 +619,12 @@ class Stats(object):
         """
 
         vector = np.asarray(vector)
-        
+
         if not(label in list(self.vectors.keys())):
             self.vectors[label] = []
             self.columns[label] = vector.shape
         if not(exclude):
             self.vectors[label].append(vector)
-
 
     def add_to_stack(self,label,arr,exclude=False):
         """
@@ -659,7 +639,6 @@ class Stats(object):
             self.little_stack[label] += arr
             self.little_stack_count[label] += 1
 
-
     def get_stacks(self,verbose=True):
         """
         Collect from all MPI cores and calculate stacks.
@@ -669,7 +648,7 @@ class Stats(object):
 
             for k,label in enumerate(self.little_stack.keys()):
                 self.comm.send(self.little_stack_count[label], dest=self.root, tag=self.tag_start*3000+k)
-            
+
             for k,label in enumerate(self.little_stack.keys()):
                 send_dat = np.array(self.little_stack[label]).astype(np.float64)
                 self.comm.Send(send_dat, dest=self.root, tag=self.tag_start*10+k)
@@ -685,7 +664,6 @@ class Stats(object):
                     data = self.comm.recv(source=core, tag=self.tag_start*3000+k)
                     self.stack_count[label] += data
 
-            
             for k,label in enumerate(self.little_stack.keys()):
                 self.stacks[label] = self.little_stack[label]
             for core in self.loopover: #range(1,self.numcores):
@@ -696,10 +674,10 @@ class Stats(object):
                     self.comm.Recv(data_vessel, source=core, tag=self.tag_start*10+k)
                     self.stacks[label] += data_vessel
 
-                    
-            for k,label in enumerate(self.little_stack.keys()):                
+
+            for k,label in enumerate(self.little_stack.keys()):
                 self.stacks[label] /= self.stack_count[label]
-                
+
     def get_stats(self,verbose=True,skip_stats=False):
         """
         Collect from all MPI cores and calculate statistics for
@@ -725,7 +703,6 @@ class Stats(object):
                     data = self.comm.recv(source=core, tag=self.tag_start*2000+k)
                     self.numobj[label].append(data)
 
-            
             for k,label in enumerate(self.vectors.keys()):
                 self.vectors[label] = np.array(self.vectors[label])
             for core in self.loopover: #range(1,self.numcores):
@@ -743,8 +720,6 @@ class Stats(object):
                 for k,label in enumerate(self.vectors.keys()):
                     self.stats[label] = get_stats(self.vectors[label])
             #self.vectors = {}
-                
-
 
 def npspace(minim,maxim,num,scale="lin"):
     if scale=="lin" or scale=="linear":
@@ -752,21 +727,19 @@ def npspace(minim,maxim,num,scale="lin"):
     elif scale=="log":
         return np.logspace(np.log10(minim),np.log10(maxim),num)
 
-
 class bin2D(object):
     def __init__(self, modrmap, bin_edges):
         self.centers = (bin_edges[1:]+bin_edges[:-1])/2.
         self.digitized = np.digitize(np.ndarray.flatten(modrmap), bin_edges,right=True)
         self.bin_edges = bin_edges
     def bin(self,data2d,weights=None):
-        
+
         if weights is None:
             res = np.bincount(self.digitized,(data2d).reshape(-1))[1:-1]/np.bincount(self.digitized)[1:-1]
         else:
             #weights = self.digitized*0.+weights
             res = np.bincount(self.digitized,(data2d*weights).reshape(-1))[1:-1]/np.bincount(self.digitized,weights.reshape(-1))[1:-1]
         return self.centers,res
-
 
 class bin1D:
     '''
@@ -775,15 +748,13 @@ class bin1D:
     * Assumes x is continuous in a subdomain of x0.
     * Should handle NaNs correctly.
     '''
-    
 
     def __init__(self, bin_edges):
 
         self.update_bin_edges(bin_edges)
 
-
     def update_bin_edges(self,bin_edges):
-        
+
         self.bin_edges = bin_edges
         self.numbins = len(bin_edges)-1
         self.cents = (self.bin_edges[:-1]+self.bin_edges[1:])/2.
@@ -801,16 +772,12 @@ class bin1D:
 
         # pretty sure this treats nans in y correctly, but should double-check!
         bin_means = binnedstat(x,y,bins=self.bin_edges,statistic=np.nanmean)[0]
-        
+
         return self.cents,bin_means
 
-        
-    
 def bin_in_annuli(data2d, modrmap, bin_edges):
     binner = bin2D(modrmap, bin_edges)
     return binner.bin(data2d)
-
-
 
 def get_stats(binned_vectors):
     '''
@@ -829,10 +796,9 @@ def get_stats(binned_vectors):
     6. corr
     '''
     # untested!
-    
-    
+
     arr = np.asarray(binned_vectors)
-    N = arr.shape[0]  
+    N = arr.shape[0]
     ret = {}
     ret['mean'] = np.nanmean(arr,axis=0)
     ret['cov'] = np.cov(arr.transpose())
@@ -854,12 +820,8 @@ def get_stats(binned_vectors):
         ret['corr'] = ret['cov'] / stddev[:, None]
         ret['corr'] = ret['cov'] / stddev[None, :]
         np.clip(ret['corr'], -1, 1, out=ret['corr'])
-    
 
-        
     return ret
-
-
 
 def timeit(method):
 

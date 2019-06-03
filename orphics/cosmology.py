@@ -64,7 +64,7 @@ defaultCosmology = {'omch2': 0.1198
 class Cosmology(object):
     '''
     A wrapper around CAMB that tries to pre-calculate as much as possible
-    Intended to be inherited by other classes like LimberCosmology and 
+    Intended to be inherited by other classes like LimberCosmology and
     ClusterCosmology
 
     Many member functions were copied/adapted from Cosmicpy:
@@ -73,7 +73,7 @@ class Cosmology(object):
     def __init__(self,paramDict=defaultCosmology,constDict=defaultConstants,lmax=2000,clTTFixFile=None,skipCls=False,pickling=False,fill_zero=True,dimensionless=True,verbose=True,skipPower=True,pkgrid_override=None,kmax=10.,skip_growth=True,nonlinear=True,zmax=10.,low_acc=False,z_growth=None,camb_var=None):
         import camb
         from camb import model
-        
+
 
         self.camb_var = camb_var
         self.dimensionless = dimensionless
@@ -119,7 +119,7 @@ class Cosmology(object):
             assert np.abs(self.wa)<1e-3, "Non-zero wa requires PPF, which requires devel version of pycamb to be installed."
             print("WARNING: Could not use PPF dark energy model with pycamb. Falling back to non-PPF. Please install the devel branch of pycamb.")
             self.pars.set_dark_energy(w=self.w0)
-        
+
         try:
             theta = cosmo['theta100']/100.
             H0 = None
@@ -129,7 +129,7 @@ class Cosmology(object):
             theta = None
         self.pars.set_cosmology(H0=H0, cosmomc_theta=theta,ombh2=self.ombh2, omch2=self.omch2, mnu=self.mnu, tau=self.tau,nnu=self.nnu,num_massive_neutrinos=3)
         self.pars.Reion.Reionization = 0
-                  
+
         self.pars.InitPower.set_params(ns=cosmo['ns'],As=cosmo['As'])
 
         self.nonlinear = nonlinear
@@ -137,22 +137,22 @@ class Cosmology(object):
             self.pars.NonLinear = model.NonLinear_both
         else:
             self.pars.NonLinear = model.NonLinear_none
-        
+
 
         self.results= camb.get_background(self.pars)
 
         self.H0 = self.results.hubble_parameter(0.)
         assert self.H0>40. and self.H0<100.
         self.h = self.H0/100.
-        
+
         self.omnuh2 = self.pars.omegan * ((self.H0 / 100.0) ** 2.)
 
 
         # Now fixing zstar to Planck best fit!
         self.zstar = 1089.
         self.chistar = self.results.comoving_radial_distance(self.zstar)
-        
-        
+
+
 
         # self.rho_crit0 = 3. / (8. * pi) * (self.h*100 * 1.e5)**2. / c['G_CGS'] * c['MPC2CM'] / c['MSUN_CGS']
         self.rho_crit0H100 = 3. / (8. * pi) * (100 * 1.e5)**2. / c['G_CGS'] * c['MPC2CM'] / c['MSUN_CGS']
@@ -168,7 +168,7 @@ class Cosmology(object):
             self.pars.set_accuracy(AccuracyBoost=2.0, lSampleBoost=4.0, lAccuracyBoost=4.0)
         else:
             self.pars.set_accuracy(AccuracyBoost=1.0, lSampleBoost=1.0, lAccuracyBoost=1.0)
-            
+
         if nonlinear:
             self.pars.NonLinear = model.NonLinear_both
         else:
@@ -187,7 +187,7 @@ class Cosmology(object):
             self.clttfunc = lambda ell: theory.lCl('TT',ell)
             self.theory = theory
 
-            
+
         self.kmax = kmax
         if not(skipPower):
             self.results.calc_transfers(self.pars)
@@ -246,7 +246,7 @@ class Cosmology(object):
         self.atab = np.linspace(self._amin,
                              self._amax,
                              self._na)
-        
+
 
         if not(skip_growth): self._init_growth_rate()
 
@@ -260,7 +260,7 @@ class Cosmology(object):
         # f = dlnD/dlna
         if zmax is None: zmax = z + 0.1
         a = np.linspace(self.z2a(zmax),1,numzs)
-        Ds = self.D_growth(a) 
+        Ds = self.D_growth(a)
         fapprox = np.gradient(np.log(Ds),np.log(a))
         az = self.z2a(z)
         return interp1d(a,fapprox)(az)
@@ -272,9 +272,9 @@ class Cosmology(object):
         omegav = self.pars.omegav * hfactor
         fapprox = omegam**0.6 + omegav*(1.+omegam/2.)/70.
         return fapprox
-    
 
-        
+
+
     def _initPower(self,pkgrid_override=None):
         import camb
         print("initializing power...")
@@ -287,10 +287,10 @@ class Cosmology(object):
                     self.pk = pkgrid
                 def P(self,zs,ks,grid=True):
                     ks = np.asarray(ks)
-                    zs = np.asarray(zs)                            
+                    zs = np.asarray(zs)
                     return self.pk(ks,zs,grid=grid).T
             self.PK = Ptemp(pkgrid_override)
-            
+
 
     def _init_growth_rate(self):
         self.Ds = []
@@ -300,9 +300,9 @@ class Cosmology(object):
         self.fs = np.gradient(self.Ds,np.diff(self.atab)[0]) * self.atab/self.Ds
         self.Dfunc = interp1d(self.atab,self.Ds)
         self.fsfunc = interp1d(self.atab,self.fs)
-        
 
-        
+
+
 
     def Fstar(self,z,xe=1,shaw=True):
         '''
@@ -323,8 +323,8 @@ class Cosmology(object):
         '''
 
         if not(shaw):
-        
-            if z>3.: 
+
+            if z>3.:
                 NHe=1.
             else:
                 NHe=2.
@@ -337,17 +337,17 @@ class Cosmology(object):
             gasfrac = 0.9
             omgh2 = gasfrac* self.ombh2
             ne0_SI = chi*omgh2 * 3.*(self.H100_SI**2.)/self.mProton_SI/8./np.pi/self.G_SI/me
-            
-            
+
+
         return ne0_SI
 
-    
+
     #cdm transfer functions. normalized to be 1 at large scales.
     def transfer(self, k, type='camb'):
         if (type == 'camb'):
             transferdata = self.results.get_matter_transfer_data()
             Tk_camb_matter = transferdata.transfer_z('delta_cdm', z_index=0)
-            Tk_camb_matter = Tk_camb_matter/Tk_camb_matter[0] 
+            Tk_camb_matter = Tk_camb_matter/Tk_camb_matter[0]
             Tk_camb_matter_k = transferdata.q/self.h
             #interpolate to required sampling
             interpolation = interp1d(Tk_camb_matter_k,Tk_camb_matter,bounds_error=False,fill_value=0.)
@@ -428,7 +428,7 @@ class Cosmology(object):
         # D(a)
         if (type=="camb_z0norm")or(type=="camb_anorm"):
             if (self._da_interp is None) or (self._da_interp_type == "cosmicpy"):
-                ks = np.logspace(np.log10(1e-5),np.log10(1.),num=100) 
+                ks = np.logspace(np.log10(1e-5),np.log10(1.),num=100)
                 zs = self.a2z(self.atab)
                 deltakz = self.results.get_redshift_evolution(ks, zs, ['delta_cdm']) #index: k,z,0
                 D_camb = deltakz[0,:,0]/deltakz[0,0,0]
@@ -453,7 +453,7 @@ class Cosmology(object):
                 self._da_interp = interp1d(self.atab, y[:, 0], kind='linear')
                 self._da_interp_type = "cosmicpy"
             return self._da_interp(a)/self._da_interp(1.0)
-        
+
     def Omega_m_a(self, a):
         return self.Omega_m * pow(a, -3) / self.Esqr(a)
 
@@ -477,7 +477,7 @@ class Cosmology(object):
 
     def a2z(self,a):
         return (1.0/a)-1.0
-    
+
 
 
 class LimberCosmology(Cosmology):
@@ -536,7 +536,7 @@ class LimberCosmology(Cosmology):
             listKeys = list(zip(list(self.kernels.keys()),list(self.kernels.keys())))
         else:
             listKeys = list(itertools.combinations_with_replacement(list(self.kernels.keys()),2))
-            
+
         for key1,key2 in listKeys:
             retList[key1+","+key2] = []
         for ell in ellrange:
@@ -546,15 +546,15 @@ class LimberCosmology(Cosmology):
             w[k>=self.kmax]=0
             pkin = self.PK.P(self.zs, k, grid=False)
             common = ((w*pkin)*self.precalcFactor)[self.zs>=zmin]
-    
+
             for key1,key2 in listKeys:
                 estCl = np.dot(self.dchis[self.zs>=zmin], common*(self.kernels[key1]['W']*self.kernels[key2]['W'])[self.zs>=zmin])
                 retList[key1+","+key2].append(estCl)
-                
+
         for key1,key2 in listKeys:
             retList[key1+","+key2] = np.array(retList[key1+","+key2])
 
-            
+
         self.Clmatrix = retList
         self.ellrange = ellrange
 
@@ -567,8 +567,8 @@ class LimberCosmology(Cosmology):
         except:
             print("Key combination not found")
             raise
-            
-            
+
+
     def _lensWindow(self,kernel,numzIntegral):
         '''
         Calculates the following integral
@@ -583,7 +583,7 @@ class LimberCosmology(Cosmology):
             retvals[self.zs>zthis] = 0.
             return retvals
         else:
-            
+
 
             retvals = []
             for chinow,znow in zip(self.chis,self.zs):
@@ -592,41 +592,41 @@ class LimberCosmology(Cosmology):
                     retvals.append(0.) # this could be sped up
                 else:
 
-                    _galFunc = lambda z: (kernel['dndz'](z)*((1.-chinow/(self.results.comoving_radial_distance(z))))) 
+                    _galFunc = lambda z: (kernel['dndz'](z)*((1.-chinow/(self.results.comoving_radial_distance(z)))))
                     zStart = max(znow,kernel['zmin'])
                     zs=np.linspace(zStart,kernel['zmax'],numzIntegral)
                     dzs = (zs[2:]-zs[:-2])/2
                     zs = zs[1:-1]
-                    _galInt = np.dot(dzs,np.array([_galFunc(zp) for zp in zs]))            
+                    _galInt = np.dot(dzs,np.array([_galFunc(zp) for zp in zs]))
 
                     retvals.append((_galInt))
             return np.array(retvals)
-    
+
     def addDeltaNz(self,tag,zsource,bias=None,magbias=None,ignore_exists=False):
 
         if not(ignore_exists): assert not(tag in list(self.kernels.keys())), "Tag already exists."
         assert tag!="cmb", "cmb is a tag reserved for cosmic microwave background. Use a different tag."
-        
-        
+
+
         self.kernels[tag] = {}
-        self.kernels[tag]['dndz'] = "delta" 
+        self.kernels[tag]['dndz'] = "delta"
         self.kernels[tag]['zdelta'] = zsource
 
         self._generateWindow(tag,bias,magbias,numzIntegral=None)
-          
-            
+
+
     def addStepNz(self,tag,zmin,zmax,bias=None,magbias=None,numzIntegral=300,ignore_exists=False):
         if not(ignore_exists): assert not(tag in list(self.kernels.keys())), "Tag already exists."
         assert tag!="cmb", "cmb is a tag reserved for cosmic microwave background. Use a different tag."
-        
+
         self.kernels[tag] = {}
         self.kernels[tag]['zmin'] = zmin
         self.kernels[tag]['zmax'] = zmax
         normStep = (self.kernels[tag]['zmax']-self.kernels[tag]['zmin'])
         self.kernels[tag]['dndz'] = lambda z: 1./normStep
-        
+
         self._generateWindow(tag,bias,magbias,numzIntegral)
-        
+
     def addNz(self,tag,zedges,nz,bias=None,magbias=None,numzIntegral=300,ignore_exists=False):
 
         '''
@@ -637,8 +637,8 @@ class LimberCosmology(Cosmology):
 
         if not(ignore_exists): assert not(tag in list(self.kernels.keys())), "Tag already exists."
         assert tag!="cmb", "cmb is a tag reserved for cosmic microwave background. Use a different tag."
-        
-            
+
+
         dzs = (zedges[1:]-zedges[:-1])
         norm = np.dot(dzs,nz)
         zmids = (zedges[1:]+zedges[:-1])/2.
@@ -672,29 +672,29 @@ class LimberCosmology(Cosmology):
                 print(("Lensing bias min percent correction in counts ", np.min((np.nan_to_num(magcorrection *100./ self.kernels[tag]['W'])))))
 
 
-            
-        
+
+
 
 
     def _initWkappaCMB(self):#,numz):
 
         print("Initializing CMB window..")
         chirange = self.chis
-        
+
         iwcmb =  1.5*(self.omch2+self.ombh2+self.omnuh2)*100.*100.*(1.+self.zs)*self.chis*((self.chistar - self.chis)/self.chistar)/self.Hzs/self._cSpeedKmPerSec
         self.kernels['cmb']={}
         self.kernels['cmb']['W'] = iwcmb
         self.kernels['cmb']['window_z'] = interp1d(self.zs,(self.chistar - self.chis)/self.chistar)
-                
-                
+
+
 
 def unpack_cmb_theory(theory,ells,lensed=False):
-    
+
     if lensed:
         cltt = theory.lCl('TT',ells)
         clee = theory.lCl('EE',ells)
         clte = theory.lCl('TE',ells)
-        clbb = theory.lCl('BB',ells)    
+        clbb = theory.lCl('BB',ells)
     else:
         cltt = theory.uCl('TT',ells)
         clee = theory.uCl('EE',ells)
@@ -708,7 +708,7 @@ def enmap_power_from_orphics_theory(theory,lmax=None,ells=None,lensed=False,dime
     if orphics_dimensionless and not(dimensionless): tmul = TCMB**2.
     if not(orphics_dimensionless) and not(dimensionless): tmul = 1.
     if not(orphics_dimensionless) and dimensionless: tmul = 1./TCMB**2.
-    
+
     oned = False
     if ells is None:
         ells = np.arange(0,lmax,1)
@@ -723,24 +723,24 @@ def enmap_power_from_orphics_theory(theory,lmax=None,ells=None,lensed=False,dime
 
     return ps*tmul
 
-        
+
 def loadTheorySpectraFromPycambResults(results,pars,kellmax,unlensedEqualsLensed=False,useTotal=False,TCMB = 2.7255e6,lpad=9000,pickling=False,fill_zero=False,get_dimensionless=True,verbose=True,prefix=""):
     '''
 
-    The spectra are stored in dimensionless form, so TCMB has to be specified. They should 
+    The spectra are stored in dimensionless form, so TCMB has to be specified. They should
     be used with dimensionless noise spectra and dimensionless maps.
 
     All ell and 2pi factors are also stripped off.
 
- 
+
     '''
 
-    
+
     if get_dimensionless:
         tmul = 1.
     else:
         tmul = TCMB**2.
-        
+
     if useTotal:
         uSuffix = "unlensed_total"
         lSuffix = "total"
@@ -771,7 +771,7 @@ def loadTheorySpectraFromPycambResults(results,pars,kellmax,unlensedEqualsLensed
         theory.loadCls(ells,cls,pol,lensed=True,interporder="linear",lpad=lpad,fill_zero=fill_zero)
 
         if unlensedEqualsLensed:
-            theory.loadCls(ells,cls,pol,lensed=False,interporder="linear",lpad=lpad,fill_zero=fill_zero)            
+            theory.loadCls(ells,cls,pol,lensed=False,interporder="linear",lpad=lpad,fill_zero=fill_zero)
         else:
             cls = cmbmat[uSuffix][2:,i]
             ells = np.arange(2,len(cls)+2,1)
@@ -809,7 +809,7 @@ class TheorySpectra:
     set of discrete Cls and provides lensed and unlensed Cl functions
     for use in integrals
     '''
-    
+
 
     def __init__(self):
 
@@ -826,11 +826,11 @@ class TheorySpectra:
             self._gCl[keyName] = lambda x: np.piecewise(x, [x<=lpad,x>lpad], [lambda y: interp1d(ells[ells<lpad],Cls[ells<lpad],bounds_error=False,fill_value=0.)(y),lambda y: fillval*(lpad/y)**4.])
 
         else:
-            fillval = 0.            
+            fillval = 0.
             self._gCl[keyName] = interp1d(ells[ells<lpad],Cls[ells<lpad],bounds_error=False,fill_value=fillval)
-        
 
-        
+
+
 
     def gCl(self,keyName,ell):
 
@@ -843,12 +843,12 @@ class TheorySpectra:
                 return self.lCl(keyName[1:],ell)
             else:
                 raise ValueError
-        
+
         try:
             return self._gCl[keyName](ell)
         except:
             return self._gCl[keyName[::-1]](ell)
-        
+
     def loadCls(self,ell,Cl,XYType="TT",lensed=False,interporder="linear",lpad=9000,fill_zero=True):
 
         # Implement ellnorm
@@ -862,9 +862,9 @@ class TheorySpectra:
             f = lambda x: np.piecewise(x, [x<=lpad,x>lpad], [lambda y: interp1d(ell[ell<lpad],Cl[ell<lpad],bounds_error=False,fill_value=0.)(y),lambda y: fillval*(lpad/y)**4.])
 
         else:
-            fillval = 0.            
+            fillval = 0.
             f = interp1d(ell[ell<lpad],Cl[ell<lpad],bounds_error=False,fill_value=fillval)
-                    
+
         if lensed:
             self._lCl[XYType]=f
         else:
@@ -872,7 +872,7 @@ class TheorySpectra:
 
     def _Cl(self,XYType,ell,lensed=False):
 
-            
+
         mapXYType = XYType.upper()
         validateMapType(mapXYType)
 
@@ -880,7 +880,7 @@ class TheorySpectra:
         ell = np.array(ell)
 
         try:
-            if lensed:    
+            if lensed:
                 retlist = np.array(self._lCl[mapXYType](ell))
                 return retlist
             else:
@@ -904,7 +904,7 @@ class TheorySpectra:
             assert not(self.always_lensed)
             return self.uCl(XYType,ell)
         return self._Cl(XYType,ell,lensed=True)
-    
+
 
 
 def validateMapType(mapXYType):
@@ -916,18 +916,18 @@ def validateMapType(mapXYType):
 def default_theory(lpad=9000):
     cambRoot = os.path.dirname(__file__)+"/../data/Aug6_highAcc_CDM"
     return loadTheorySpectraFromCAMB(cambRoot,unlensedEqualsLensed=False,useTotal=False,TCMB = 2.7255e6,lpad=lpad,get_dimensionless=False)
-    
+
 def loadTheorySpectraFromCAMB(cambRoot,unlensedEqualsLensed=False,useTotal=False,TCMB = 2.7255e6,lpad=9000,get_dimensionless=True):
     '''
-    Given a CAMB path+output_root, reads CMB and lensing Cls into 
+    Given a CAMB path+output_root, reads CMB and lensing Cls into
     an orphics.theory.gaussianCov.TheorySpectra object.
 
-    The spectra are stored in dimensionless form, so TCMB has to be specified. They should 
+    The spectra are stored in dimensionless form, so TCMB has to be specified. They should
     be used with dimensionless noise spectra and dimensionless maps.
 
     All ell and 2pi factors are also stripped off.
 
- 
+
     '''
     if not(get_dimensionless): TCMB = 1.
     if useTotal:
@@ -959,7 +959,7 @@ def loadTheorySpectraFromCAMB(cambRoot,unlensedEqualsLensed=False,useTotal=False
     except:
         elldd, cldd = np.loadtxt(cambRoot+"_scalCls.dat",unpack=True,usecols=[0,4])
         clkk = cldd*(elldd+1.)**2./elldd**2./4./TCMB**2.
-        
+
     theory.loadGenericCls(elldd,clkk,"kk",lpad=lpad)
 
 
@@ -1004,62 +1004,62 @@ class LensForecast:
         self._haveKK = False
         self._haveKG = False
         self._haveGG = False
-        
+
         self._haveSS = False
         self._haveSG = False
-        
+
         self._haveKS = False
 
         if theory is None:
             self.theory = TheorySpectra()
         else:
             self.theory = theory
-            
+
         self.Nls = {}
-        
+
 
     def loadKK(self,ellsCls,Cls,ellsNls,Nls):
         self.Nls['kk'] = interp1d(ellsNls,Nls,bounds_error=False,fill_value=np.inf)
         self.theory.loadGenericCls(ellsCls,Cls,'kk')
-    
+
         self._haveKK = True
-        
+
 
     def loadGG(self,ellsCls,Cls,ngal):
         self.ngalForeground = ngal
         self.Nls['gg'] = lambda x: x*0.+1./(self.ngalForeground*1.18e7)
         self.theory.loadGenericCls(ellsCls,Cls,'gg')
-    
+
         self._haveGG = True
-        
-        
+
+
 
     def loadSS(self,ellsCls,Cls,ngal,shapeNoise=0.3):
         if shapeNoise==None or shapeNoise<1.e-9:
             print("No/negligible shape noise given. Using default = 0.3.")
             self.shapeNoise=0.3
 
-        else:             
+        else:
             self.shapeNoise = shapeNoise
         self.ngalBackground = ngal
         self.Nls['ss'] = lambda x: x*0.+self.shapeNoise*self.shapeNoise/(2.*self.ngalBackground*1.18e7)
 
 
         self.theory.loadGenericCls(ellsCls,Cls,'ss')
-        
+
         self._haveSS = True
 
 
     def loadSG(self,ellsCls,Cls):
         self.theory.loadGenericCls(ellsCls,Cls,'sg')
-        
+
         self._haveSG = True
 
 
     def loadKG(self,ellsCls,Cls):
         self.theory.loadGenericCls(ellsCls,Cls,'kg')
         self._haveKG = True
-                
+
 
     def loadKS(self,ellsCls,Cls):
         self.theory.loadGenericCls(ellsCls,Cls,'ks')
@@ -1069,7 +1069,7 @@ class LensForecast:
     def loadGenericCls(self,specType,ellsCls,Cls,ellsNls=None,Nls=None):
         if Nls is not None: self.Nls[specType] = interp1d(ellsNls,Nls,bounds_error=False,fill_value=np.inf)
         self.theory.loadGenericCls(ellsCls,Cls,specType)
-        
+
     def _bin_cls(self,spec,ell_left,ell_right,noise=True):
         a,b = spec
         ells = np.arange(ell_left,ell_right+1,1)
@@ -1089,7 +1089,7 @@ class LensForecast:
         '''
         def ClTot(spec,ell1,ell2):
             return self._bin_cls(spec,ell1,ell2,noise=True)
-        
+
         X, Y = specTypeXY
         W, Z = specTypeWZ
 
@@ -1108,7 +1108,7 @@ class LensForecast:
             covs.append(var)
             sigs1.append(self._bin_cls(specTypeXY,ell_left,ell_right,noise=False)**2.*np.nan_to_num(1./var))
             sigs2.append(self._bin_cls(specTypeWZ,ell_left,ell_right,noise=False)**2.*np.nan_to_num(1./var))
-        
+
 
         return np.array(covs), np.array(sigs1), np.array(sigs2)
 
@@ -1116,24 +1116,24 @@ class LensForecast:
         return self.KnoxCov(specType,specType,ellBinEdges,fsky)[0]
 
     def sn(self,ellBinEdges,fsky,specType):
-        
+
         var, sigs1, sigs2 = self.KnoxCov(specType,specType,ellBinEdges,fsky)
 
         signoise = np.sqrt(sigs1.sum())
         errs = np.sqrt(var)
 
         return signoise, errs
-            
+
 
     def snRatio(self,ellBinEdges,fsky):
-        
+
         ellMids  =  (ellBinEdges[1:] + ellBinEdges[:-1]) / 2
         ellWidths = np.diff(ellBinEdges)
 
         sumchisq = 0.
         signum = 0.
         sigden = 0.
-        
+
         for ellMid,ellWidth in zip(ellMids,ellWidths):
             Clkk = self.theory.gCl('kk',ellMid)
             Nlkk = self.Nls['kk'](ellMid)
@@ -1144,7 +1144,7 @@ class LensForecast:
             Clks = self.theory.gCl('ks',ellMid)
             Clss = self.theory.gCl('ss',ellMid)
             Clsg = self.theory.gCl('sg',ellMid)
-    
+
             r0 = Clkg / Clsg
             pref = 1./(fsky*(2.*ellMid+1.)*ellWidth) # added ellWidth
 
@@ -1162,7 +1162,7 @@ class LensForecast:
             chisq = numer/denom
 
             sumchisq += chisq
-    
+
         maxlike = signum/sigden
 
         sigmaR = 1./np.sqrt(sumchisq)
@@ -1170,10 +1170,10 @@ class LensForecast:
         snR = maxlike/sigmaR
 
         return percentR,snR,maxlike
-           
+
 def noise_func(ell,fwhm,rms_noise,lknee=0.,alpha=0.,dimensionless=False,TCMB=2.7255e6):
-    '''Beam deconvolved noise in whatever units rms_noise is in.                         
-    e.g. If rms_noise is in uK-arcmin, returns noise in uK**2.                           
+    '''Beam deconvolved noise in whatever units rms_noise is in.
+    e.g. If rms_noise is in uK-arcmin, returns noise in uK**2.
     '''
     atmFactor = atm_factor(ell,lknee,alpha)
     rms = rms_noise * (1./60.)*(np.pi/180.)
@@ -1200,21 +1200,21 @@ def white_noise_with_atm_func(ell,uk_arcmin,lknee,alpha,dimensionless,TCMB=2.725
 
 def noise_pad_infinity(Nlfunc,ellmin,ellmax):
     return lambda x: np.piecewise(np.asarray(x).astype(float), [np.asarray(x)<ellmin,np.logical_and(np.asarray(x)>=ellmin,np.asarray(x)<=ellmax),np.asarray(x)>ellmax], [lambda y: np.inf, lambda y: Nlfunc(y), lambda y: np.inf])
-    
+
 def getAtmosphere(beamFWHMArcmin=None,returnFunctions=False):
-    '''Get TT-lknee, TT-alpha, PP-lknee, PP-alpha  
+    '''Get TT-lknee, TT-alpha, PP-lknee, PP-alpha
     Returns either as functions of beam FWHM (arcmin) or for specified beam FWHM (arcmin)
     '''
 
     if beamFWHMArcmin is None: assert returnFunctions
     if not(returnFunctions): assert beamFWHMArcmin is not None
 
-    # best fits from M.Hasselfield                                                                                            
+    # best fits from M.Hasselfield
     ttalpha = -4.7
     ttlknee = np.array([350.,3400.,4900.])
     pplknee = np.array([60,330,460])
     ppalpha = np.array([-2.6,-3.8,-3.9])
-    size = np.array([0.5,5.,7.]) # size in meters                                                                             
+    size = np.array([0.5,5.,7.]) # size in meters
 
     freq = 150.e9
     cspeed = 299792458.
@@ -1236,7 +1236,7 @@ def getAtmosphere(beamFWHMArcmin=None,returnFunctions=False):
 
 def get_lensed_cls(theory,ells,clkk,lmax):
     import camb.correlations as corr
-    
+
     ellrange = np.arange(0,lmax+2000,1)
     mulfact = ellrange*(ellrange+1.)/2./np.pi
     ucltt = theory.uCl('TT',ellrange)*mulfact
@@ -1252,7 +1252,7 @@ def get_lensed_cls(theory,ells,clkk,lmax):
     lcls = corr.lensed_cls(cmbarr,clpp)
 
     lmax = lmax+2000
-    
+
     cellrange = ellrange[:lmax].reshape((ellrange[:lmax].size,1)) #cellrange.ravel()[:lmax]
     lclall = lcls[:lmax,:]
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -1262,7 +1262,7 @@ def get_lensed_cls(theory,ells,clkk,lmax):
     #clcltt = np.nan_to_num(clcltt/cellrange/(cellrange+1.)*2.*np.pi)
     #print clcltt
     lpad = lmax
-    
+
     dtheory = TheorySpectra()
     with np.errstate(divide='ignore', invalid='ignore'):
         mult = np.nan_to_num(1./mulfact)
@@ -1326,7 +1326,7 @@ def fk_comparison(param,z,val1,val2,oparams=None):
 
     gfunc = lambda cci: cci.results.get_redshift_evolution(ks, z, [comp])
     g1 = gfunc(cc)
-    
+
     g1approx2 = cc.growth_scale_independent(z)
     params = defaultCosmology
     params[param] = val2
@@ -1334,10 +1334,10 @@ def fk_comparison(param,z,val1,val2,oparams=None):
         for key in oparams.keys():
             params[key] = oparams[key]
 
-    
+
     cc = Cosmology(params,skipCls=True,zmax=z+1,kmax=10,low_acc=True)
     g2 = gfunc(cc)
-    
+
     g2approx2 = cc.growth_scale_independent(z)
     from orphics import io
     pl = io.Plotter(xlabel='k',ylabel='$f(k)$',xscale='log')
@@ -1361,25 +1361,25 @@ def pk_comparison(param,z,val1,val2,oparams=None):
     ks = np.logspace(np.log10(1e-4),np.log10(0.3),500)
 
     pk1 = cc.PK.P(z, ks, grid=False)
-    
+
     params = defaultCosmology
     params[param] = val2
     if oparams is not None:
         for key in oparams.keys():
             params[key] = oparams[key]
 
-    
+
     cc = Cosmology(params,skipCls=True,zmax=z+1,kmax=10,low_acc=True,skipPower=False)
     pk2 = cc.PK.P(z, ks, grid=False)
 
-    
+
     from orphics import io
     pl = io.Plotter(xlabel='k',ylabel='$P(k)$',xscale='log',yscale='log')
     pl.add(ks,pk1.ravel(),label=param+'='+str(val1),color="C0")
     pl.add(ks,pk2.ravel(),label=param+'='+str(val2),color="C1")
     pl.legend(loc = 'upper right')
     pl.done()
-    
+
     pl = io.Plotter(xlabel='k',ylabel='$\Delta P(k) / P$',xscale='log')
     pl.add(ks,(pk2.ravel()-pk1.ravel())/pk2.ravel(),label=param+'='+str(val1),color="C0")
     pl.legend(loc = 'upper right')
@@ -1400,7 +1400,7 @@ def class_cls(lmax,params=None,cosmo=None,zmin=None,zmax=None,bias=None,dndz_fil
         'l_max_scalars': lmax,
         'lensing': 'yes',
         'A_s': 2.3e-9,
-        'n_s': 0.9624, 
+        'n_s': 0.9624,
         'h': 0.6711,
         'omega_b': 0.022068,
         'omega_cdm': 0.12029,
@@ -1437,7 +1437,7 @@ def class_cls(lmax,params=None,cosmo=None,zmin=None,zmax=None,bias=None,dndz_fil
     retcls['ells'] = ells
 
     return retcls,cosmo,params
-    
+
 
 
 
@@ -1450,7 +1450,7 @@ class ClassCosmology(object):
             'l_max_scalars': lmax,
             'lensing': 'yes',
             'A_s': 2.3e-9,
-            'n_s': 0.9624, 
+            'n_s': 0.9624,
             'h': 0.6711,
             'omega_b': 0.022068,
             'omega_cdm': 0.12029,
@@ -1466,7 +1466,7 @@ class ClassCosmology(object):
 def kmode_derivatives(ks,mus,param_list,fid_dict,step_dict,\
                       scale_growth=True,rsd=False,linear=False,low_acc=True):
     pass
-    
+
 def kmode_fisher(ks,mus,param_list,dPgg,dPgv,dPvv,fPgg,fPgv,fPvv,Ngg,Nvv, \
                  verbose=False):
     """
@@ -1494,7 +1494,7 @@ def kmode_fisher(ks,mus,param_list,dPgg,dPgv,dPvv,fPgg,fPgv,fPvv,Ngg,Nvv, \
         Cov = np.array([[Pgg_fid+Ngg,Pgv_fid],
                        [Pgv_fid,Pvv_fid+Nvv]])
         # Integrate over mu and k
-        for mu_id,mu in enumerate(mus[:-1]):                                                                                                     
+        for mu_id,mu in enumerate(mus[:-1]):
             dmu = mus[mu_id+1]-mus[mu_id]
             for k_id,k in enumerate(ks[:-1]):
                 dk = ks[k_id+1]-ks[k_id]
